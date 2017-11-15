@@ -1,0 +1,124 @@
+#!/usr/bin/env perl
+=comment
+    Include Acme::Comment module for best style of comments
+    For comments then we will use the C style with one_line enabled
+=cut
+
+use Acme::Comment type => 'C', one_line=>1;
+
+
+/*
+    InstaTG
+    A Telegram BOT for Insta....
+    Copyright 2017 Ernesto Castellotti <erny.castell@gmail.com>
+*/
+
+
+/*
+    Include module
+    LWP::Simple, for simple web request (es get)
+    LWP::Protocol::https, for https protocol request
+    JSON, for decode Json
+    WWW::Telegram::BotAPI, for Telegram request
+*/
+
+use LWP::Simple;
+use LWP::Protocol::https;
+use JSON;
+use WWW::Telegram::BotAPI;
+use IO::Handle;
+STDOUT->autoflush(1);
+
+
+
+/*
+    Variable declaration
+    $insta_user for the insta.... user to get post
+    $insta_url, a current insta.... api url for get feed with $insta_user
+    $bot_token, is used to send telegram requests
+    $send_id, the telegram id to send post
+    $insta_photo_old, the previous photo link
+    $insta_caption_old. the previous caption text
+    $insta_photo, the current photo link
+    $insta_caption, the current caption text
+*/
+
+my $insta_user = 'Insert here your insta.... username for get post';
+my $bot_token = 'Insert here your Telegram bot token';
+my $send_id = 'Insert here your main telegram chat to send insta.... post';
+my $insta_url = "https://www.instagram.com/$insta_user/?__a=1";
+my $insta_photo_old = '';
+my $insta_caption_old = '';
+my $insta_photo = '';
+my $insta_caption = '';
+
+while (1)
+{
+  feed();
+  sleep(60);
+}
+
+sub feed {
+  /*
+     Get the insta.... json feed
+     Use a get request for assign to the variable $insta_feedjson the insta.... feed
+     The url for get request is in the variable $insta_url
+  */
+
+  my $insta_feedjson = get($insta_url);
+
+
+  /*
+     Decode the insta.... json feed with JSON module and set decoded in variable $insta_feed
+     The json feed to decode is in the variable $insta_feedjson
+  */
+
+  my $insta_feed = decode_json($insta_feedjson);
+
+
+  /*
+     Set a variable $insta_photo and $insta_caption the interesting array (user->media->nodes[0]->display_src and  user->media->nodes[0]->caption) of feed
+     This set only the first nodes (nodes[0]) for get only lasted post on insta....
+  */
+
+  $insta_photo = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'display_src'};
+  $insta_caption = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'caption'};
+
+
+  /*
+      Check if $insta_photo_old variable and $insta_photo is equals
+      Same thing with $insta_caption_old variable and $insta_caption
+  */
+
+  if ($insta_photo_old eq $insta_photo && $insta_caption_old eq $insta_caption)
+  {
+    print("No need post");
+  } else {
+    $insta_photo_old = $insta_photo;
+    $insta_caption_old = $insta_caption;
+    sendPost($insta_photo, $insta_caption);
+  }
+}
+
+sub sendPost {
+  my $photo_msg = $_[0];
+  my $caption_msg = $_[1];
+  my $api = WWW::Telegram::BotAPI->new (token => $bot_token);
+  if (length($caption_msg) <= '200')
+  {
+    $api->sendPhoto ({
+      chat_id => $send_id,
+      photo   => $photo_msg,
+      caption => $caption_msg
+    });
+  } else {
+      $api->sendMessage ({
+      chat_id => $send_id,
+      text   => "$caption_msg\n$photo_msg"
+    });
+  }
+}
+  
+
+
+
