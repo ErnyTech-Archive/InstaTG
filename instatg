@@ -89,7 +89,7 @@ sub feed {
   $insta_caption = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'caption'};
   $insta_id = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'id'};
   my $id_url = $base64->encode($insta_id);
-  my $post_url = "https://www.instagram.com/p/$id_url"
+  my $post_url = "http://redirectbot.altervista.org?url=https://www.instagram.com/p/$id_url";
 
   /*
       Check if $insta_photo_old variable and $insta_photo is equals
@@ -102,25 +102,26 @@ sub feed {
   } else {
     $insta_photo_old = $insta_photo;
     $insta_caption_old = $insta_caption;
-    sendPost($insta_photo, $insta_caption);
+    sendPost($insta_photo, $insta_caption, $post_url);
   }
 }
 
 sub sendPost {
   my $photo_msg = $_[0];
   my $caption_msg = $_[1];
+  my $url = $_[2];
   my $api = WWW::Telegram::BotAPI->new (token => $bot_token);
   if (length($caption_msg) <= '200')
   {
     $api->sendPhoto ({
       chat_id => $send_id,
       photo   => $photo_msg,
-      caption => "$caption_msg\nVai al post: \n$post_url"
+      caption => "$caption_msg\nVai al post: \n$url"
     });
   } else {
       $api->sendMessage ({
       chat_id => $send_id,
-      text   => "$caption_msg\nVai al post: \n$post_url$photo_msg"
+      text   => "$caption_msg\nVai al post: \n$url$photo_msg"
     });
   }
 }
