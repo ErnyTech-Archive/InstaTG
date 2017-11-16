@@ -27,6 +27,7 @@ use LWP::Protocol::https;
 use JSON;
 use WWW::Telegram::BotAPI;
 use IO::Handle;
+use Convert::AnyBase;
 STDOUT->autoflush(1);
 
 
@@ -51,6 +52,9 @@ my $insta_photo_old = '';
 my $insta_caption_old = '';
 my $insta_photo = '';
 my $insta_caption = '';
+my $insta_id = '';
+my $insta_id_old = '';
+my $base64 = Convert::AnyBase->new( set => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_', normalize => sub { lc } );
 
 while (1)
 {
@@ -83,7 +87,9 @@ sub feed {
 
   $insta_photo = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'display_src'};
   $insta_caption = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'caption'};
-
+  $insta_id = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'id'};
+  my $id_url = $base64->encode($insta_id);
+  my $post_url = "https://www.instagram.com/p/$id_url"
 
   /*
       Check if $insta_photo_old variable and $insta_photo is equals
@@ -109,12 +115,12 @@ sub sendPost {
     $api->sendPhoto ({
       chat_id => $send_id,
       photo   => $photo_msg,
-      caption => $caption_msg
+      caption => "$caption_msg\nVai al post: \n$post_url"
     });
   } else {
       $api->sendMessage ({
       chat_id => $send_id,
-      text   => "$caption_msg\n$photo_msg"
+      text   => "$caption_msg\nVai al post: \n$post_url$photo_msg"
     });
   }
 }
