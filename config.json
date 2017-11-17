@@ -1,0 +1,16 @@
+{
+  "user-insta": [
+    "Insert here your Insta.... user",
+    "Insert here your Insta.... user"
+  ],
+  "sendid-telegram" : [
+    "Insert here your Telegram Chat ID to post",
+    "Insert here your Telegram Chat ID to post"
+    ],
+  "time-update": 60,
+  "bot-token": "Insert here your Telegram BOT Token",
+  "message-post" : [
+    "$caption_msg\nVai al post: \n$url",
+    "$caption_msg\nVai al post: \n$url$photo_msg"
+    ]
+}
