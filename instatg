@@ -27,39 +27,76 @@ use LWP::Protocol::https;
 use JSON;
 use WWW::Telegram::BotAPI;
 use IO::Handle;
-use Convert::AnyBase;
-STDOUT->autoflush(1);
-
 
 
 /*
+    Read the json configuration file and assign the related variables
+*/    
+my $json_config;
+{
+  local $/;
+  /*
+    The file must be placed in the same directory as instatg
+  */  
+  
+  open my $fh, "<", "./config.json";
+  $json_config = <$fh>;
+  
+  /*
+  File closed
+  */
+  close $fh;
+  
+}
+
+/*
     Variable declaration
-    $insta_user for the insta.... user to get post
-    $insta_url, a current insta.... api url for get feed with $insta_user
+    $config, contains the decoded json file for the configurations
+    $user_insta, the user taken from the configurations for updates
+    @sendid_telegram, array which contains all the telegram chats in which to send the posts
+    $time_update, the update time chosen in the config
     $bot_token, is used to send telegram requests
-    $send_id, the telegram id to send post
-    $insta_photo_old, the previous photo link
-    $insta_caption_old. the previous caption text
+    $insta_url, contains the URL of the insta....
+    $insta_api, contains the argument to take the feed from insta.... API
+    $insta, it's the complete url to get the feed
+    $insta_id_old, the previous insta.... id
+    $insta_id, the current insta....id
     $insta_photo, the current photo link
     $insta_caption, the current caption text
+    $post_url, the current post url
+    $post_urlre, the current post url redirected
+    $insta_feedjson, the insta.... json feed
+    $insta_feed, the decoded insta.... feed
+    
 */
 
-my $insta_user = 'Insert here your insta.... username for get post';
-my $bot_token = 'Insert here your Telegram bot token';
-my $send_id = 'Insert here your main telegram chat to send insta.... post';
-my $insta_url = "https://www.instagram.com/$insta_user/?__a=1";
-my $insta_photo_old = '';
-my $insta_caption_old = '';
+
+my $config = decode_json($json_config);
+my $user_insta = $config->{'user-insta'};
+my @sendid_telegram = @{$config->{'sendid-telegram'}};
+my $time_update = $config->{'time-update'};
+my $bot_token = $config->{'bot-token'};
+my $insta_url = $config->{'insta_url'};
+my $insta_api = $config->{'insta_api'};
+my $insta=$insta_url . $user_insta . $insta_api;
+my $insta_id_old = '';
+my $insta_id = '';
 my $insta_photo = '';
 my $insta_caption = '';
-my $insta_id = '';
-my $insta_id_old = '';
-my $base64 = Convert::AnyBase->new( set => 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_', normalize => sub { lc } );
+my $post_url = '';
+my $post_urlre = '';
+
+
+/*
+    Create an unconditional while loop to continue searching for updates from the insta feed ....
+    sleep() slows down the search depending on the configuration
+*/
+
 
 while (1)
 {
   feed();
-  sleep(60);
+  sleep($time_update);
 }
 
 sub feed {
@@ -68,41 +105,54 @@ sub feed {
      Use a get request for assign to the variable $insta_feedjson the insta.... feed
      The url for get request is in the variable $insta_url
   */
-
-  my $insta_feedjson = get($insta_url);
-
+    my $insta_feedjson;
+    eval {
+        $insta_feedjson = get($insta);
+    } or do {
+        print("Can't get feed\n");
+        return;
+    };
 
   /*
      Decode the insta.... json feed with JSON module and set decoded in variable $insta_feed
      The json feed to decode is in the variable $insta_feedjson
   */
-
-  my $insta_feed = decode_json($insta_feedjson);
-
-
+    my $insta_feed;
+    eval {
+        $insta_feed = decode_json($insta_feedjson);
+    } or do {
+        print("Can't decode feed\n");
+        return;
+    };
   /*
-     Set a variable $insta_photo and $insta_caption the interesting array (user->media->nodes[0]->display_src and  user->media->nodes[0]->caption) of feed
+     Set a variable 
+     $insta_photo from user->media->nodes[0]->display_src 
+     $insta_caption user->media->nodes[0]->caption
+     $insta_id user->media->nodes[0]->id
+     $post_url user->media->nodes[0]->code
+     $post_urlre url of the post is redirected through a simple php page, for not create problems with the preview of telegram
      This set only the first nodes (nodes[0]) for get only lasted post on insta....
   */
 
   $insta_photo = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'display_src'};
   $insta_caption = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'caption'};
   $insta_id = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'id'};
-  my $id_url = $base64->encode($insta_id);
-  my $post_url = "http://redirectbot.altervista.org?url=https://www.instagram.com/p/$id_url";
+  $post_url = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'code'};
+  $post_urlre = "http://redirectbot.altervista.org?url=$insta_url". "p/$post_url";
 
   /*
       Check if $insta_photo_old variable and $insta_photo is equals
       Same thing with $insta_caption_old variable and $insta_caption
   */
 
-  if ($insta_photo_old eq $insta_photo && $insta_caption_old eq $insta_caption)
+  if ($insta_id eq $insta_id_old)
   {
-    print("No need post");
+    print("No need post\n");
   } else {
-    $insta_photo_old = $insta_photo;
-    $insta_caption_old = $insta_caption;
-    sendPost($insta_photo, $insta_caption, $post_url);
+    $insta_id_old=$insta_id;
+    foreach my $id (@sendid_telegram) {
+        sendPost($insta_photo, $insta_caption, $post_urlre, $id);
+    }
   }
 }
 
@@ -110,9 +160,9 @@ sub sendPost {
   my $photo_msg = $_[0];
   my $caption_msg = $_[1];
   my $url = $_[2];
+  my $send_id = $_[3];
   my $api = WWW::Telegram::BotAPI->new (token => $bot_token);
-  if (length($caption_msg) <= '200')
-  {
+  if (length($caption_msg) <= '200') {
     $api->sendPhoto ({
       chat_id => $send_id,
       photo   => $photo_msg,
@@ -121,7 +171,8 @@ sub sendPost {
   } else {
       $api->sendMessage ({
       chat_id => $send_id,
-      text   => "$caption_msg\nVai al post: \n$url$photo_msg"
+      text   => "$caption_msg\nVai al post: \n$url\n\n[.]($photo_msg)",
+      parse_mode   => "markdown"
     });
   }
 }

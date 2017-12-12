@@ -1,16 +1,11 @@
 {
-  "user-insta": [
-    "Insert here your Insta.... user",
-    "Insert here your Insta.... user"
-  ],
+  "user-insta": "Insert insta.... userid",
   "sendid-telegram" : [
-    "Insert here your Telegram Chat ID to post",
-    "Insert here your Telegram Chat ID to post"
+    "Insert chat id",
+    "Insert chat id"
     ],
-  "time-update": 60,
-  "bot-token": "Insert here your Telegram BOT Token",
-  "message-post" : [
-    "$caption_msg\nVai al post: \n$url",
-    "$caption_msg\nVai al post: \n$url$photo_msg"
-    ]
+  "time-update": "Insert update time",
+  "bot-token": "Insert the telegram bot token",
+  "insta_url": "https://www.insta.....com/",
+  "insta_api": "/?__a=1"
 }
