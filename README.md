@@ -14,3 +14,5 @@ Copyright (C) 2017  Ernesto Castellotti <erny.castell@gmail.com>
     You should have received a copy of the GNU Affero General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+    The AGPL is not applicable to the config.json file because it contains sensitive personal data, so if you 
+    modify that file you can not distribute that particular file following the rules of the AGPL
