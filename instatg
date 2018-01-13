@@ -79,7 +79,7 @@ my $bot_token = $config->{'bot-token'};
 my $insta_url = $config->{'insta_url'};
 my $insta_api = $config->{'insta_api'};
 my $insta=$insta_url . $user_insta . $insta_api;
-my $insta_id_old = '';
+my $insta_id_old = $_[1];
 my $insta_id = '';
 my $insta_photo = '';
 my $insta_caption = '';
@@ -95,11 +95,19 @@ my $post_urlre = '';
 
 while (1)
 {
-  feed();
+  reloadConf();
+  feed($_[0], @ARGV);
   sleep($time_update);
 }
 
 sub feed {
+  if (@ARGV > 0) {
+    my $levelPost = $ARGV[0];
+    $ARGV[0] = 1;
+  else {
+    my $levelPost = 0;
+  }
+  
   /*
      Get the insta.... json feed
      Use a get request for assign to the variable $insta_feedjson the insta.... feed
@@ -134,11 +142,17 @@ sub feed {
      This set only the first nodes (nodes[0]) for get only lasted post on insta....
   */
 
-  $insta_photo = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'display_src'};
-  $insta_caption = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'caption'};
-  $insta_id = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'id'};
-  $post_url = $insta_feed->{'user'}->{'media'}->{'nodes'}->[0]->{'code'};
-  $post_urlre = "http://redirectbot.altervista.org?url=$insta_url". "p/$post_url";
+  $insta_photo = $insta_feed->{'user'}->{'media'}->{'nodes'}->[$levelPost]->{'display_src'};
+  $insta_caption = $insta_feed->{'user'}->{'media'}->{'nodes'}->[$levelPost]->{'caption'};
+  $insta_id = $insta_feed->{'user'}->{'media'}->{'nodes'}->[$levelPost]->{'id'};
+  $post_url = $insta_feed->{'user'}->{'media'}->{'nodes'}->[$levelPost]->{'code'};
+  $is_video = $insta_feed->{'user'}->{'media'}->{'nodes'}->[$levelPost]->{'is_video};
+  
+  if ($ARGV[1]) {
+    $insta_id_old = $insta_id;
+    $ARGV[1] = false;
+    next;
+  }
 
   /*
       Check if $insta_photo_old variable and $insta_photo is equals
@@ -151,12 +165,25 @@ sub feed {
   } else {
     $insta_id_old=$insta_id;
     foreach my $id (@sendid_telegram) {
-        sendPost($insta_photo, $insta_caption, $post_urlre, $id);
+        sendPost($insta_photo, $insta_caption, $post_url, $id, $is_video);
     }
   }
 }
 
 sub sendPost {
+    my $media_msg = $_[0];
+    my $caption_msg = $_[1];
+    my $url = $_[2];
+    my $send_id = $_[3];
+    my $is_video = $_[4];
+    if ($is_video) {
+        sendPostVideo($media_msg, $caption_msg, $url, $send_id);
+    } else {
+         sendPostPhoto($media_msg, $caption_msg, $url, $send_id);
+    }
+}
+
+sub sendPostPhoto {
   my $photo_msg = $_[0];
   my $caption_msg = $_[1];
   my $url = $_[2];
@@ -171,11 +198,79 @@ sub sendPost {
   } else {
       $api->sendMessage ({
       chat_id => $send_id,
-      text   => "$caption_msg\nVai al post: \n$url\n\n[.]($photo_msg)",
+      text   => "$caption_msg\nVai al post: ",
       parse_mode   => "markdown"
+    });
+      $api->sendPhoto ({
+      chat_id => $send_id,
+      photo   => $photo_msg,
     });
   }
 }
+
+sub sendPostVideo {
+  my $caption_msg = $_[0];
+  my $url = $_[1];
+  my $send_id = $_[2];
+  my $video_msg = getVideo($url);
+  my $api = WWW::Telegram::BotAPI->new (token => $bot_token);
+  if (length($caption_msg) <= '200') {
+    $api->sendVideo ({
+      chat_id => $send_id,
+      video   => $video_msg,
+      caption => "$caption_msg\nVai al post: \n$url"
+    });
+  } else {
+      $api->sendMessage ({
+      chat_id => $send_id,
+      text   => "$caption_msg\nVai al post: \n$url\n\n[.]($photo_msg)",
+      parse_mode   => "markdown"
+    });
+      $api->sendVideo ({
+      chat_id => $send_id,
+      video   => $video_msg;
+    });
+  }
+}
+
+sub getVideo {
+    my $post_link = $_[0];
+    my $cmd = "curl $post_link 2>&1";
+    my @html = qx($cmd);	
+    my @video = grep(/og:video:secure_url/, @html);
+    $video[0] =~ s/<meta property="og:video:secure_url" content="//;
+    my $e = '" />';
+    $video[0] =~ s/$e//;
+    $video[0] =~ s/^\s+//;
+    $video[0] =~ s/\s+$//;
+    return $video[0];
+}
+
+sub reloadConf {
+    {
+        local $/;
+        /*
+        The file must be placed in the same directory as instatg
+        */  
+  
+        open my $fh, "<", "./config.json";
+        $json_config = <$fh>;
+  
+        /*
+        File closed
+        */
+        close $fh;
+    }
+   
+    $config = decode_json($json_config);
+    $user_insta = $config->{'user-insta'};
+    @sendid_telegram = @{$config->{'sendid-telegram'}};
+    $time_update = $config->{'time-update'};
+    $bot_token = $config->{'bot-token'};
+    $insta_url = $config->{'insta_url'};
+    $insta_api = $config->{'insta_api'};
+    $insta=$insta_url . $user_insta . $insta_api; 
+} 
   
 
 
